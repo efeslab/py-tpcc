@@ -30,7 +30,7 @@
 # -----------------------------------------------------------------------
 
 import random
-import nurand
+from . import nurand
 
 SYLLABLES = [ "BAR", "OUGHT", "ABLE", "PRI", "PRES", "ESE", "ANTI", "CALLY", "ATION", "EING" ]
 
@@ -130,7 +130,7 @@ def makeLastName(number):
     global SYLLABLES
     assert 0 <= number and number <= 999
     indicies = [ number/100, (number/10)%10, number%10 ]
-    return "".join(map(lambda x: SYLLABLES[x], indicies))
+    return "".join([SYLLABLES[x] for x in indicies])
 ## DEF
 
 def makeRandomLastName(maxCID):

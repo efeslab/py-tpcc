@@ -34,7 +34,7 @@ TABLE_COLUMNS = {
         "W_ZIP", # VARCHAR
         "W_TAX", # FLOAT
         "W_YTD", # FLOAT
-    ],    
+    ],
     constants.TABLENAME_DISTRICT: [
         "D_ID", # TINYINT
         "D_W_ID", # SMALLINT
@@ -134,7 +134,7 @@ TABLE_INDEXES = {
     ],
     constants.TABLENAME_WAREHOUSE: [
         "W_ID",
-    ],    
+    ],
     constants.TABLENAME_DISTRICT: [
         "D_ID",
         "D_W_ID",
@@ -185,16 +185,16 @@ def createPrimaryKey(tableName, id, obj):
                                 constants.TABLENAME_ORDERS, id)
     else:
         return '%s.%s' % (tableName,id)
-        
-    
 
-    
+
+
+
 
 class ScalarisDriver(AbstractDriver):
     '''
     Scalaris Driver for CS227 TPCC benchmark
     '''
-    
+
     DEFAULT_CONFIG = {
         "database": ("The path to the main Scalaris Node", "http://localhost:8000" ),
     }
@@ -204,46 +204,46 @@ class ScalarisDriver(AbstractDriver):
         init
         '''
         super(ScalarisDriver, self).__init__("scalaris", ddl)
-        
+
     ## ----------------------------------------------
     ## makeDefaultConfig
     ## ----------------------------------------------
     def makeDefaultConfig(self):
         return ScalarisDriver.DEFAULT_CONFIG
-    
+
     ## ----------------------------------------------
     ## loadConfig
     ## ----------------------------------------------
     def loadConfig(self, config):
         for key in list(ScalarisDriver.DEFAULT_CONFIG.keys()):
             assert key in config, "Missing parameter '%s' in %s configuration" % (key, self.name)
-        
+
         self.database = str(config["database"])
-    
-            
+
+
         self.conn = JSONConnection(url=self.database)
-        
+
         #self.tran = self.transactionFactory()
         #single op is much faster for nearly all operations
         self.tran = TransactionSingleOp(self.conn)
-        
+
     def transactionFactory(self):
         '''
         Transaction object factory method
         '''
         return Transaction(self.conn)
-    
+
     def loadTuples(self, tableName, tuples):
         s = set([constants.TABLENAME_HISTORY, \
                  constants.TABLENAME_NEW_ORDER, \
                  constants.TABLENAME_ORDER_LINE,\
                  constants.TABLENAME_STOCK])
-        
+
         if tableName in s:
             self.loadComplexTuples(tableName,tuples)
         else:
             self.loadSimpleTuples(tableName, tuples)
-            
+
             if tableName == constants.TABLENAME_ORDERS:
                 self.loadOrderCustomer(tableName, tuples)
             if tableName == constants.TABLENAME_CUSTOMER:
@@ -260,9 +260,9 @@ class ScalarisDriver(AbstractDriver):
             w_id = history["H_C_W_ID"]
             d_id = history['H_C_D_ID']
             c_id = history["H_C_ID"]
-            
+
             history_d[w_id][d_id][c_id].append(history)
-        
+
         for w in list(history_d.keys()):
             for d in list(history_d[w].keys()):
                 for o in list(history_d[w][d].keys()):
@@ -270,7 +270,7 @@ class ScalarisDriver(AbstractDriver):
                                                     constants.TABLENAME_DISTRICT, d, \
                                                     constants.TABLENAME_CUSTOMER, o,\
                                                     constants.TABLENAME_HISTORY)
-                    self.tran.write(history_key, history_d[w][d][o]) 
+                    self.tran.write(history_key, history_d[w][d][o])
 
     def loadStock(self,tuples):
         '''
@@ -278,13 +278,13 @@ class ScalarisDriver(AbstractDriver):
         '''
 
         #need to reestablish because some large values cause problems with scalaris ws
-        self.conn = JSONConnection(url=self.database)              
+        self.conn = JSONConnection(url=self.database)
         self.tran = TransactionSingleOp(self.conn)
-        
+
         stock_d = defaultdict(defaultdict)
         tableDef = TABLE_COLUMNS[constants.TABLENAME_STOCK]
         stock_idx = defaultdict(list)
-        
+
         for tuple in tuples:
             stock = dict(list(zip(tableDef,tuple)))
             tuple_short = [tuple[0], tuple[2]]
@@ -293,20 +293,20 @@ class ScalarisDriver(AbstractDriver):
             s_i_id = stock['S_I_ID']
             stock_d[s_w_id][s_i_id] = stock
             stock_idx[s_w_id].append(stock_short)
-        
+
         for s in list(stock_d.keys()):
             s_key = '%s.%s.%s' % (constants.TABLENAME_WAREHOUSE, s, constants.TABLENAME_STOCK)
             print("key %s" % s_key)
             print("value %s" % stock_idx[s])
             self.tran.write(s_key, stock_idx[s])
-            
+
         for w in list(stock_d.keys()):
             for i in list(stock_d[w].keys()):
                 s_key = '%s.%s.%s.%s' % (constants.TABLENAME_WAREHOUSE, w, constants.TABLENAME_STOCK, i)
                 self.tran.write(s_key, stock_d[s][i])
-           
-           
-        
+
+
+
     def loadOrderLine(self,tuples):
         '''
         Load order line objects:
@@ -321,10 +321,10 @@ class ScalarisDriver(AbstractDriver):
             w_id = no["OL_W_ID"]
             d_id = no['OL_D_ID']
             o_id = no["OL_O_ID"]
-            
+
             ol_d[w_id][d_id][o_id].append(no)
             order_ids[w_id][d_id].append(str(o_id))
-        
+
         for w in list(ol_d.keys()):
             for d in list(ol_d[w].keys()):
                 for o in list(ol_d[w][d].keys()):
@@ -338,7 +338,7 @@ class ScalarisDriver(AbstractDriver):
                                                     constants.TABLENAME_DISTRICT, d, \
                                                     constants.TABLENAME_ORDER_LINE)
                 self.tran.write(no_key, order_ids[w][d])
-    
+
     def loadNewOrder(self,tuples):
         '''
         Load new order objects:
@@ -353,10 +353,10 @@ class ScalarisDriver(AbstractDriver):
             w_id = no["NO_W_ID"]
             d_id = no['NO_D_ID']
             o_id = no["NO_O_ID"]
-            
+
             no_d[w_id][d_id][o_id].append(no)
             order_ids[w_id][d_id].append(str(o_id))
-        
+
         for w in list(no_d.keys()):
             for d in list(no_d[w].keys()):
                 for o in list(no_d[w][d].keys()):
@@ -371,7 +371,7 @@ class ScalarisDriver(AbstractDriver):
                                                     constants.TABLENAME_DISTRICT, d, \
                                                     constants.TABLENAME_NEW_ORDER)
                 self.tran.write(no_key, order_ids[w][d])
-    
+
     def loadComplexTuples(self, tableName, tuples):
         '''
         Dispatching method for tuples that need secondary/advanced indexing
@@ -385,83 +385,83 @@ class ScalarisDriver(AbstractDriver):
         if tableName == constants.TABLENAME_STOCK:
             self.loadStock(tuples)
         #self.tran.commit()
-            
-            
+
+
     def loadOrderCustomer(self, tableName, tuples):
         '''
         Load order objects:
         WAREHOUSE.W_ID.DISTRICT.D_ID.ORDERS.O_ID -> Order Object
         WAREHOUSE.W_ID.DISTRICT.D_ID.ORDERS-> List of Order Ids for that district
         '''
-        
+
         #order case
         tableDef = TABLE_COLUMNS[tableName]
         o_d=defaultdict(lambda : defaultdict(lambda : defaultdict(list)))
-        
-        
+
+
         for tuple in tuples:
             value = dict(list(zip(tableDef,tuple)))
             o_id = value['O_ID']
             c_id = value['O_C_ID']
             d_id = value['O_D_ID']
             w_id = value['O_W_ID']
-            
+
             oc_key = '%s.%s.%s.%s.%s.%s' % (constants.TABLENAME_WAREHOUSE,w_id, constants.TABLENAME_DISTRICT,d_id, constants.TABLENAME_ORDERS,o_id)
             self.tran.write(oc_key, c_id)
-            
+
             o_d[w_id][d_id][c_id].append(str(o_id))
-            
+
         for k1 in list(o_d.keys()):
             for k2 in list(o_d[k1].keys()):
                 for k3 in list(o_d[k1][k2].keys()):
                     orders_key = '%s.%s.%s.%s.%s.%s.%s' % (constants.TABLENAME_WAREHOUSE, k1, constants.TABLENAME_DISTRICT, k2, \
                                             constants.TABLENAME_CUSTOMER, k3, constants.TABLENAME_ORDERS)
                     self.tran.write(orders_key,o_d[k1][k2][k3])
-                    
-    
+
+
     def loadWarehouseDistrictCustomers(self, tableName, tuples):
         '''
         Load warehouse district customers:
         WAREHOUSE.W_ID.DISTRICT.CUSTOMERS -> List of Customer IDs
         '''
-        
+
         #customers
         custs = defaultdict(lambda : defaultdict(list))
         tableDef = TABLE_COLUMNS[tableName]
         for tuple in tuples:
-            value = dict(list(zip(tableDef,tuple))) 
-            
+            value = dict(list(zip(tableDef,tuple)))
+
             c_last = value['C_LAST']
             c_id = value['C_ID']
             c_idx = {}
             c_idx['C_LAST'] = c_last
             c_idx['C_ID'] = c_id
             d_id = value['C_D_ID']
-            w_id = value['C_W_ID']      
+            w_id = value['C_W_ID']
             custs[w_id][d_id].append(c_idx)
-        
+
         for w in list(custs.keys()):
             for d in list(custs[w].keys()):
                 custs_key = '%s.%s.%s.%s.%s' % (constants.TABLENAME_WAREHOUSE, w,\
                                                     constants.TABLENAME_DISTRICT, d, \
                                                     'CUSTOMERS')
                 self.tran.write(custs_key, custs[w][d])
- 
-         
-    
-    
+
+
+
+
     def loadSimpleTuples(self, tableName, tuples):
         """Load a list of tuples into the target table"""
-    
-        self.conn = JSONConnection(url=self.database)              
+
+        self.conn = JSONConnection(url=self.database)
         self.tran = TransactionSingleOp(self.conn)
-        
+
         if len(tuples) == 0: return
-        
+
         idx =0
-        
+
         tableDef = TABLE_COLUMNS[tableName]
-        
+
         for tuple in tuples:
             pId= tuple[0]
             value = dict(list(zip(tableDef[1:],tuple[1:])))
@@ -470,7 +470,7 @@ class ScalarisDriver(AbstractDriver):
             #self.tran.commit()
             if idx == 500:
                 print('%s %s' % (tableName, primaryKey))
-                idx = 0 
+                idx = 0
 #                self.tran.commit()
             idx+=1
 
@@ -479,10 +479,10 @@ class ScalarisDriver(AbstractDriver):
     def loadFinish(self):
         logging.info("Commiting changes to database")
         #self.tran.commit()
-        
+
     def executeStart(self):
         self.conn = JSONConnection(url=self.database)
-        
+
         #self.tran = self.transactionFactory()
         self.tran = TransactionSingleOp(self.conn)
     def executeFinish(self):
@@ -490,7 +490,7 @@ class ScalarisDriver(AbstractDriver):
 #        self.tran.commit()
         self.tran.closeConnection()
         #self.tran.commit()
-        
+
     ## ----------------------------------------------
     ## doDelivery
     ## ----------------------------------------------
@@ -502,29 +502,29 @@ class ScalarisDriver(AbstractDriver):
         result = [ ]
         for d_id in range(1, constants.DISTRICTS_PER_WAREHOUSE+1):
             ## getNewOrder
-            ## WAREHOUSE.W_ID.DISTRICT.D_ID.NEW_ORDERS -> List of New Orders 
+            ## WAREHOUSE.W_ID.DISTRICT.D_ID.NEW_ORDERS -> List of New Orders
             no_key = '%s.%s.%s.%s.%s' % (constants.TABLENAME_WAREHOUSE, w_id, constants.TABLENAME_DISTRICT, d_id, constants.TABLENAME_NEW_ORDER)
-            
+
             newOrders = None
             newOrders = self.tran.read(no_key) #we expect a list of new order ifd
             if newOrders == None:
                 ## No orders for this district: skip it. Note: This must be reported if > 1%
                 continue
             assert len(newOrders) > 0
-            
-            #just ids            
+
+            #just ids
             no_o_id = min(newOrders)
             newOrders.remove(no_o_id)
             no_o_id = int(no_o_id)
             #new order objects
-            
+
             ## getCId
             ## WAREHOUSE.W_ID.DISTRICT.D_ID.ORDER.ORDER_ID = List of Customers
             customer = None
             c_key = '%s.%s.%s.%s.%s.%s' % (constants.TABLENAME_WAREHOUSE, w_id, \
                                      constants.TABLENAME_DISTRICT, d_id, \
                                      constants.TABLENAME_ORDERS, no_o_id)
-            
+
             customer = self.tran.read(c_key)
             assert customer != None
             c_id = customer
@@ -535,33 +535,33 @@ class ScalarisDriver(AbstractDriver):
             ol_key = '%s.%s.%s.%s.%s.%s' % (constants.TABLENAME_WAREHOUSE, w_id, \
                                      constants.TABLENAME_DISTRICT, d_id, \
                                      constants.TABLENAME_ORDER_LINE, no_o_id)
-            
+
             orderLines = self.tran.read(ol_key)
-            
+
             ol_total = 0.0
             for ol in orderLines:
                 ol_total += ol["OL_AMOUNT"]
                 ol['OL_DELIVERY_D'] = ol_delivery_d
             ## FOR
-            
+
             ## deleteNewOrder
             #self.new_order.remove({"NO_D_ID": d_id, "NO_W_ID": w_id, "NO_O_ID": no_o_id})
             no_del_key = '%s.%s.%s.%s.%s.%s' % (constants.TABLENAME_WAREHOUSE, w_id, constants.TABLENAME_DISTRICT, d_id, constants.TABLENAME_NEW_ORDER, no_o_id)
             self.tran.write(no_del_key, None)
             self.tran.write(no_key,newOrders)
-            
+
             ## updateOrders
             order_key = '%s.%s.%s.%s.%s.%s.%s.%s' % (constants.TABLENAME_WAREHOUSE, w_id, constants.TABLENAME_DISTRICT, d_id, constants.TABLENAME_CUSTOMER, c_id, constants.TABLENAME_ORDERS, no_o_id)
             order = self.tran.read(order_key)
             order['O_CARRIER_ID'] = o_carrier_id
             self.tran.write(order_key, order)
             #self.orders.update({"O_ID": no_o_id, "O_D_ID": d_id, "O_W_ID": w_id}, {"$set": {"O_CARRIER_ID": o_carrier_id}}, multi=False)
-            
+
             ## updateOrderLine
             #self.order_line.update({"OL_O_ID": no_o_id, "OL_D_ID": d_id, "OL_W_ID": w_id}, {"$set": {"OL_DELIVERY_D": ol_delivery_d}}, multi=False)
             self.tran.write(ol_key, orderLines)
-            
-            
+
+
             # These must be logged in the "result file" according to TPC-C 2.7.2.2 (page 39)
             # We remove the queued time, completed time, w_id, and o_carrier_id: the client can figure
             # them out
@@ -572,16 +572,16 @@ class ScalarisDriver(AbstractDriver):
             ## updateCustomer
             customer_key = '%s.%s.%s.%s.%s.%s' % (constants.TABLENAME_WAREHOUSE, w_id, \
                                 constants.TABLENAME_DISTRICT, d_id, constants.TABLENAME_CUSTOMER, c_id)
-            
+
             customer = self.tran.read(customer_key)
             customer["C_BALANCE"]=customer["C_BALANCE"]+ol_total
-            
+
             #self.customer.update({"C_ID": c_id, "C_D_ID": d_id, "C_W_ID": w_id}, {"$inc": {"C_BALANCE": ol_total}})
 
             result.append((d_id, no_o_id))
         ## FOR
         return result
-    
+
     ## ----------------------------------------------
     ## doNewOrder
     ## ----------------------------------------------
@@ -594,14 +594,14 @@ class ScalarisDriver(AbstractDriver):
         i_w_ids = params["i_w_ids"]
         i_qtys = params["i_qtys"]
         s_dist_col = "S_DIST_%02d" % d_id
-            
+
         assert len(i_ids) > 0
         assert len(i_ids) == len(i_w_ids)
         assert len(i_ids) == len(i_qtys)
 
         ## http://stackoverflow.com/q/3844931/
         all_local = (not i_w_ids or [w_id] * len(i_w_ids) == i_w_ids)
-        
+
         ## GET ALL ITEMS WITH
         ## ITEM.I_ID
         items = []
@@ -610,44 +610,44 @@ class ScalarisDriver(AbstractDriver):
             item = self.tran.read(i_key)
             if item:
                 items.append(item)
-                   
+
         ## TPCC defines 1% of neworder gives a wrong itemid, causing rollback.
         ## Note that this will happen with 1% of transactions on purpose.
         if len(items) != len(i_ids):
             ## TODO Abort here!
             return
         ## IF
-        
+
         ## ----------------
         ## Collect Information from WAREHOUSE, DISTRICT, and CUSTOMER
         ## ----------------
-        
+
         # getWarehouseTaxRate
         ## WAREHOUSE.W_ID -> warehouse object
         w_key = '%s.%s' % (constants.TABLENAME_WAREHOUSE, w_id)
         w = self.tran.read(w_key)
         assert w
         w_tax = w["W_TAX"]
-        
+
         # getDistrict
         ## WAREHOUSE.W_ID.DISTRICT.D_ID -> district object
-        
+
         d_key = '%s.%s.%s.%s' % (constants.TABLENAME_WAREHOUSE, w_id, constants.TABLENAME_DISTRICT, d_id)
         d = self.tran.read(d_key)
         assert d
         d_tax = d["D_TAX"]
         d_next_o_id = d["D_NEXT_O_ID"]
-        
-        
+
+
         # incrementNextOrderId
         d["D_NEXT_O_ID"] = d["D_NEXT_O_ID"] + 1
         self.tran.write(d_key, d);
-        
-        
+
+
         # getCustomer
         ## WAREHOUSE.W_ID.DISTRICT.D_ID.CUSTOMER.C_ID -> Customer Object
         c_key = '%s.%s.%s.%s.%s.%s' % (constants.TABLENAME_WAREHOUSE, w_id, constants.TABLENAME_DISTRICT, d_id, \
-                                       constants.TABLENAME_CUSTOMER, c_id)    
+                                       constants.TABLENAME_CUSTOMER, c_id)
         c = self.tran.read(c_key)
         assert c
         c_discount = c["C_DISCOUNT"]
@@ -657,42 +657,42 @@ class ScalarisDriver(AbstractDriver):
         ## ----------------
         ol_cnt = len(i_ids)
         o_carrier_id = constants.NULL_CARRIER_ID
-        
+
         # createOrder
         ## write to order object to WAREHOUSE.W_ID.DISTRICT.D_ID.CUSTOMER.C_ID.ORDER.O_ID
         o_key = '%s.%s.%s.%s.%s.%s.%s.%s' % (constants.TABLENAME_WAREHOUSE, w_id, constants.TABLENAME_DISTRICT, d_id, \
                                        constants.TABLENAME_CUSTOMER, c_id,  constants.TABLENAME_ORDERS, d_next_o_id)
-        
-        order = {#"O_ID": d_next_o_id, 
-                 "O_D_ID": d_id, 
-                 "O_W_ID": w_id, 
-                 "O_C_ID": c_id, 
-                 "O_ENTRY_D": o_entry_d, 
-                 "O_CARRIER_ID": o_carrier_id, 
-                 "O_OL_CNT": ol_cnt, 
-                 "O_ALL_LOCAL": all_local}    
-        
+
+        order = {#"O_ID": d_next_o_id,
+                 "O_D_ID": d_id,
+                 "O_W_ID": w_id,
+                 "O_C_ID": c_id,
+                 "O_ENTRY_D": o_entry_d,
+                 "O_CARRIER_ID": o_carrier_id,
+                 "O_OL_CNT": ol_cnt,
+                 "O_ALL_LOCAL": all_local}
+
         self.tran.write(o_key, order)
-   
-        
+
+
         # createNewOrder
-        
+
         ## write new order object  to WAREHOUSE.W_ID.DISTRICT.D_ID.CUSTOMER.C_ID.ORDER.O_ID.NEW_ORDER.NO_ID
         ## newOrder
         ## assumption
         ##  WAREHOUSE.W_ID.DISTRICT.D_ID.NEW_ORDER.ORDER_ID -> List of New Order Objects
         new_order = {"NO_O_ID": d_next_o_id, "NO_D_ID": d_id, "NO_W_ID": w_id}
         no_key = '%s.%s.%s.%s.%s.%s' % (constants.TABLENAME_WAREHOUSE, w_id, constants.TABLENAME_DISTRICT, d_id, constants.TABLENAME_NEW_ORDER, d_next_o_id)
-        
+
         try:
             new_orders = self.tran.read(no_key)
         except NotFoundException:
             new_orders = []
-        
+
         new_orders.append(new_order)
-            
+
         self.tran.write(no_key, new_orders)
-        
+
         #self.new_order.insert({"NO_O_ID": d_next_o_id, "NO_D_ID": d_id, "NO_W_ID": w_id})
 
         ## ----------------
@@ -706,7 +706,7 @@ class ScalarisDriver(AbstractDriver):
             ##WAREHOUSE.W_ID.STOCK -returns-> List of Stock Objects w/ S_I_ID and S_QUANTITY
             allStocks_key = '%s.%s.%s' % (constants.TABLENAME_WAREHOUSE, w_id, constants.TABLENAME_STOCK)
             allStocks = self.tran.read(allStocks_key)
-            
+
             assert len(allStocks) == ol_cnt
             stockInfos = { }
             for si in allStocks:
@@ -736,21 +736,21 @@ class ScalarisDriver(AbstractDriver):
                 assert si["S_I_ID"] == ol_i_id, "S_I_ID should be %d\n%s" % (ol_i_id, pformat(si))
             else:
                 ## WAREHOUSE.W_ID.STOCK.S_ID
-                
+
                 allStocks_key = '%s.%s.%s' % (constants.TABLENAME_WAREHOUSE, w_id, constants.TABLENAME_STOCK)
                 allStocks = self.tran.read(allStocks_key)
-                
+
                 for stock in allStocks:
                     if stock['S_I_ID'] == ol_i_id:
                         si = stock
                         break
-                
+
             assert si, "Failed to find S_I_ID: %d\n%s" % (ol_i_id, pformat(itemInfo))
-            
+
             si_key = '%s.%s.%s.%s' % (constants.TABLENAME_WAREHOUSE, w_id, constants.TABLENAME_STOCK, si['S_I_ID'])
             stock= self.tran.read(si_key)
-            
-            
+
+
             s_quantity = si["S_QUANTITY"]
             s_ytd = stock["S_YTD"]
             s_order_cnt = stock["S_ORDER_CNT"]
@@ -765,19 +765,19 @@ class ScalarisDriver(AbstractDriver):
             else:
                 s_quantity = s_quantity + 91 - ol_quantity
             s_order_cnt += 1
-            
+
             if ol_supply_w_id != w_id: s_remote_cnt += 1
 
             # updateStock
-            si["S_QUANTITY"] = s_quantity  
-            stock["S_QUANTITY"] = s_quantity  
-            stock["S_YTD"] = s_ytd 
-            stock["S_ORDER_CNT"] = s_order_cnt 
-            stock["S_REMOTE_CNT"] = s_remote_cnt 
+            si["S_QUANTITY"] = s_quantity
+            stock["S_QUANTITY"] = s_quantity
+            stock["S_YTD"] = s_ytd
+            stock["S_ORDER_CNT"] = s_order_cnt
+            stock["S_REMOTE_CNT"] = s_remote_cnt
             ## so this should be cools
             self.tran.write(allStocks_key, allStocks)
             self.tran.write(si_key, stock)
-            
+
 
             if i_data.find(constants.ORIGINAL_STRING) != -1 and s_data.find(constants.ORIGINAL_STRING) != -1:
                 brand_generic = 'B'
@@ -787,26 +787,26 @@ class ScalarisDriver(AbstractDriver):
             ol_amount = ol_quantity * i_price
             total += ol_amount
 
-            order_line = {"OL_O_ID": d_next_o_id, 
-                          "OL_D_ID": d_id, 
-                          "OL_W_ID": w_id, 
-                          "OL_NUMBER": ol_number, 
+            order_line = {"OL_O_ID": d_next_o_id,
+                          "OL_D_ID": d_id,
+                          "OL_W_ID": w_id,
+                          "OL_NUMBER": ol_number,
                           "OL_I_ID": ol_i_id,
-                           "OL_SUPPLY_W_ID": ol_supply_w_id, 
-                           "OL_DELIVERY_D": o_entry_d, 
-                           "OL_QUANTITY": ol_quantity, 
+                           "OL_SUPPLY_W_ID": ol_supply_w_id,
+                           "OL_DELIVERY_D": o_entry_d,
+                           "OL_QUANTITY": ol_quantity,
                            "OL_AMOUNT": ol_amount,
                            "OL_DIST_INFO": s_dist_xx}
 
             ##WAREHOUSE.W_ID.DISTRICT.D_ID.ORDER_LINE.ORDER_ID -> List of OrderLine Objects
             ol_key = '%s.%s.%s.%s.%s.%s' % (constants.TABLENAME_WAREHOUSE, w_id, constants.TABLENAME_DISTRICT, d_id, \
                                             constants.TABLENAME_ORDER_LINE, d_next_o_id)
-            
+
             try:
                 order_lines = self.tran.read(ol_key)
             except NotFoundException:
                 order_lines = []
-            
+
             order_lines.append(order_line)
             self.tran.write(ol_key, order_lines)
 
@@ -814,7 +814,7 @@ class ScalarisDriver(AbstractDriver):
             ## Add the info to be returned
             item_data.append( (i_name, s_quantity, brand_generic, i_price, ol_amount) )
         ## FOR
-        
+
         ## Adjust the total for the discount
         #print "c_discount:", c_discount, type(c_discount)
         #print "w_tax:", w_tax, type(w_tax)
@@ -823,9 +823,9 @@ class ScalarisDriver(AbstractDriver):
 
         ## Pack up values the client is missing (see TPC-C 2.4.3.5)
         misc = [ (w_tax, d_tax, d_next_o_id, total) ]
-        
-        return [ c, misc, item_data ]    
-    
+
+        return [ c, misc, item_data ]
+
     ## ----------------------------------------------
     ## doOrderStatus
     ## ----------------------------------------------
@@ -834,7 +834,7 @@ class ScalarisDriver(AbstractDriver):
         d_id = params["d_id"]
         c_id = params["c_id"]
         c_last = params["c_last"]
-        
+
 
         if c_id != None:
             # getCustomerByCustomerId
@@ -847,10 +847,10 @@ class ScalarisDriver(AbstractDriver):
             #WAREHOUSE.W_ID.DISTRICT.D_ID.CUSTOMERS -> List of Customers (or C_ID:C_LAST pairs)
             all_customers_key = '%s.%s.%s.%s.CUSTOMERS' % (constants.TABLENAME_WAREHOUSE, w_id, \
                                 constants.TABLENAME_DISTRICT, d_id)
-            
+
             all_customers = self.tran.read(all_customers_key)
             all_customers = [customer for customer in all_customers if customer['C_LAST']==c_last]
-            
+
             namecnt = len(all_customers)
             assert namecnt > 0
             index = (namecnt-1)/2
@@ -865,7 +865,7 @@ class ScalarisDriver(AbstractDriver):
         orders_key = '%s.%s.%s.%s.%s.%s.%s' % (constants.TABLENAME_WAREHOUSE, w_id, constants.TABLENAME_DISTRICT, d_id, \
                                             constants.TABLENAME_CUSTOMER, c_id, constants.TABLENAME_ORDERS)
         orders = self.tran.read(orders_key)
-        
+
         o_id = max(orders)
 
         order_key = '%s.%s.%s.%s.%s.%s.%s.%s' % (constants.TABLENAME_WAREHOUSE, w_id, constants.TABLENAME_DISTRICT, d_id, \
@@ -873,11 +873,11 @@ class ScalarisDriver(AbstractDriver):
 
 
         order = self.tran.read(order_key)
-        
+
         if order:
             # getOrderLines
 
-            ## WAREHOUSE.W_ID.DISTRICT.D_ID.CUSTOMER.ORDER_LINE.O_ID -> List of Orderline Objects 
+            ## WAREHOUSE.W_ID.DISTRICT.D_ID.CUSTOMER.ORDER_LINE.O_ID -> List of Orderline Objects
             ol_key = '%s.%s.%s.%s.%s.%s' % (constants.TABLENAME_WAREHOUSE, w_id, constants.TABLENAME_DISTRICT, d_id, \
                                             constants.TABLENAME_ORDER_LINE, o_id)
             orderLines = self.tran.read(ol_key)
@@ -889,9 +889,9 @@ class ScalarisDriver(AbstractDriver):
 
     ## ----------------------------------------------
     ## doPayment
-    ## ----------------------------------------------    
+    ## ----------------------------------------------
     def doPayment(self, params):
-        
+
         w_id = params["w_id"]
         d_id = params["d_id"]
         h_amount = params["h_amount"]
@@ -912,10 +912,10 @@ class ScalarisDriver(AbstractDriver):
             #WAREHOUSE.W_ID.DISTRICT.D_ID.CUSTOMERS -> List of Customers (or C_ID:C_LAST pairs)
             all_customers_key = '%s.%s.%s.%s.CUSTOMERS' % (constants.TABLENAME_WAREHOUSE, c_w_id, \
                                 constants.TABLENAME_DISTRICT, c_d_id)
-            
+
             all_customers = self.tran.read(all_customers_key)
             all_customers = [customer for customer in all_customers if customer['C_LAST']==c_last]
-            
+
             namecnt = len(all_customers)
             assert namecnt > 0
             index = (namecnt-1)/2
@@ -924,7 +924,7 @@ class ScalarisDriver(AbstractDriver):
             cust_key = '%s.%s.%s.%s.%s.%s' % (constants.TABLENAME_WAREHOUSE, c_w_id, \
                                 constants.TABLENAME_DISTRICT, c_d_id, constants.TABLENAME_CUSTOMER, c_id)
             c = self.tran.read(cust_key)
-       
+
         assert len(c) > 0
         assert c_id != None
         c["C_BALANCE"] = c["C_BALANCE"] - h_amount
@@ -933,13 +933,13 @@ class ScalarisDriver(AbstractDriver):
         c_data = c["C_DATA"]
 
         # getWarehouse
-        
-        ## SCALARIS 
+
+        ## SCALARIS
         ## WAREHOUSE.W_ID -> Warehouse Object
         w_key = '%s.%s' % (constants.TABLENAME_WAREHOUSE, c_w_id)
         w = self.tran.read(w_key)
         assert w
-        
+
         # getDistrict
         ## SCALARIS
         ## WAREHOUSE.W_ID.DISTRICT.D_ID - > District Object
@@ -947,38 +947,38 @@ class ScalarisDriver(AbstractDriver):
                                 constants.TABLENAME_DISTRICT, d_id)
         d = self.tran.read(d_key)
         assert d
-        
+
         # updateWarehouseBalance
         w['W_YTD'] = w['W_YTD'] + h_amount
         self.tran.write(w_key, w)
-        
+
         # updateDistrictBalance
         d['D_YTD'] = d['D_YTD'] + h_amount
         self.tran.write(d_key, d)
-        
+
         # Customer Credit Information
         if c["C_CREDIT"] == constants.BAD_CREDIT:
             newData = " ".join(map(str, [c_id, c_d_id, c_w_id, d_id, w_id, h_amount]))
             c_data = (newData + "|" + c_data)
             if len(c_data) > constants.MAX_C_DATA: c_data = c_data[:constants.MAX_C_DATA]
-            
+
             c['C_DATA']=c_data
 
 
         self.tran.write(cust_key, c)
         # Concatenate w_name, four spaces, d_name
         h_data = "%s    %s" % (w["W_NAME"], d["D_NAME"])
-        
+
         # insertHistory
-        history = {#"H_C_ID": c_id, 
-                   #"H_C_D_ID": c_d_id, 
-                   #"H_C_W_ID": c_w_id, 
-                   "H_D_ID": d_id, 
-                   "H_W_ID": w_id, 
-                   "H_DATE": h_date, 
-                   "H_AMOUNT": h_amount, 
+        history = {#"H_C_ID": c_id,
+                   #"H_C_D_ID": c_d_id,
+                   #"H_C_W_ID": c_w_id,
+                   "H_D_ID": d_id,
+                   "H_W_ID": w_id,
+                   "H_DATE": h_date,
+                   "H_AMOUNT": h_amount,
                    "H_DATA": h_data}
-        
+
         h_key = '%s.%s.%s.%s.%s.%s.%s' % (constants.TABLENAME_WAREHOUSE, c_w_id, \
                                           constants.TABLENAME_DISTRICT, c_d_id, \
                                           constants.TABLENAME_CUSTOMER, c_id,
@@ -998,15 +998,15 @@ class ScalarisDriver(AbstractDriver):
 
         # Hand back all the warehouse, district, and customer data
         return [ w, d, c ]
-            
+
     ## ----------------------------------------------
     ## doStockLevel
-    ## ----------------------------------------------    
+    ## ----------------------------------------------
     def doStockLevel(self, params):
         w_id = params["w_id"]
         d_id = params["d_id"]
         threshold = params["threshold"]
-        
+
         # getOId
         ## WAREHOUSE.W_ID.DISTRICT.D_ID -returns-> District Object w/ attribute: D_NEXT_O_ID
         ##
@@ -1014,7 +1014,7 @@ class ScalarisDriver(AbstractDriver):
         d = self.tran.read(d_key)
         assert d
         o_id = d["D_NEXT_O_ID"]
-        
+
         ## WAREHOUSE.W_ID.DISTRICT.D_ID.ORDER_LINE.ORDER_ID -returns-> List of Order Line Objects w/ OL_I_ID
         ##
         ol_key = '%s.%s.%s.%s.%s' % (constants.TABLENAME_WAREHOUSE, w_id, \
@@ -1027,13 +1027,12 @@ class ScalarisDriver(AbstractDriver):
         for ol in orderLines:
             if ol < o_id and ol >= o_id-20:
                 ol_ids.add(ol)
-        
+
 
         ## WAREHOUSE.W_ID.STOCK -returns-> List of Stock Objects w/ S_I_ID and S_QUANTITY
         s_key = '%s.%s.%s' % (constants.TABLENAME_WAREHOUSE, w_id, \
                                      constants.TABLENAME_STOCK)
         stocks = self.tran.read(s_key)
         result = len([stock for stock in stocks if stock['S_I_ID'] in ol_ids and stock['S_QUANTITY'] < threshold])
-        
+
         return int(result)
-        

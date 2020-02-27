@@ -33,20 +33,21 @@ import logging
 import re
 import argparse
 import glob
-import time 
+import time
 import multiprocessing
 from configparser import SafeConfigParser
 from pprint import pprint,pformat
+from pathlib import Path
 
-from .util import *
-from .runtime import *
-from . import drivers
+from util import *
+from runtime import *
+import drivers
 
 logging.basicConfig(level = logging.INFO,
                     format="%(asctime)s [%(funcName)s:%(lineno)03d] %(levelname)-5s: %(message)s",
                     datefmt="%m-%d-%Y %H:%M:%S",
                     stream = sys.stdout)
-                    
+
 ## ==============================================
 ## createDriverClass
 ## ==============================================
@@ -74,20 +75,20 @@ def startLoading(driverClass, scaleParameters, args, config):
     logging.debug("Creating client pool with %d processes" % args['clients'])
     pool = multiprocessing.Pool(args['clients'])
     debug = logging.getLogger().isEnabledFor(logging.DEBUG)
-    
+
     # Split the warehouses into chunks
     w_ids = [[ ] for x in range(args['clients'])]
     for w_id in range(scaleParameters.starting_warehouse, scaleParameters.ending_warehouse+1):
         idx = w_id % args['clients']
         w_ids[idx].append(w_id)
     ## FOR
-    
+
     loader_results = [ ]
     for i in range(args['clients']):
         r = pool.apply_async(loaderFunc, (driverClass, scaleParameters, args, config, w_ids[i], True))
         loader_results.append(r)
     ## FOR
-    
+
     pool.close()
     logging.debug("Waiting for %d loaders to finish" % args['clients'])
     pool.join()
@@ -100,26 +101,26 @@ def loaderFunc(driverClass, scaleParameters, args, config, w_ids, debug):
     driver = driverClass(args['ddl'])
     assert driver != None
     logging.debug("Starting client execution: %s [warehouses=%d]" % (driver, len(w_ids)))
-    
+
     config['load'] = True
     config['execute'] = False
     config['reset'] = False
     driver.loadConfig(config)
-   
+
     try:
         loadItems = (1 in w_ids)
         l = loader.Loader(driver, scaleParameters, w_ids, loadItems)
         driver.loadStart()
         l.execute()
-        driver.loadFinish()   
+        driver.loadFinish()
     except KeyboardInterrupt:
-            return -1
+        return -1
     except (Exception, AssertionError) as ex:
         logging.warn("Failed to load data: %s" % (ex))
         #if debug:
         traceback.print_exc(file=sys.stdout)
         raise
-        
+
 ## DEF
 
 ## ==============================================
@@ -129,7 +130,7 @@ def startExecution(driverClass, scaleParameters, args, config):
     logging.debug("Creating client pool with %d processes" % args['clients'])
     pool = multiprocessing.Pool(args['clients'])
     debug = logging.getLogger().isEnabledFor(logging.DEBUG)
-    
+
     worker_results = [ ]
     for i in range(args['clients']):
         r = pool.apply_async(executorFunc, (driverClass, scaleParameters, args, config, debug,))
@@ -137,7 +138,7 @@ def startExecution(driverClass, scaleParameters, args, config):
     ## FOR
     pool.close()
     pool.join()
-    
+
     total_results = results.Results()
     for asyncr in worker_results:
         asyncr.wait()
@@ -146,7 +147,7 @@ def startExecution(driverClass, scaleParameters, args, config):
         if type(r) == int and r == -1: sys.exit(1)
         total_results.append(r)
     ## FOR
-    
+
     return (total_results)
 ## DEF
 
@@ -157,7 +158,7 @@ def executorFunc(driverClass, scaleParameters, args, config, debug):
     driver = driverClass(args['ddl'])
     assert driver != None
     logging.debug("Starting client execution: %s" % driver)
-    
+
     config['execute'] = True
     config['reset'] = False
     driver.loadConfig(config)
@@ -166,7 +167,7 @@ def executorFunc(driverClass, scaleParameters, args, config, debug):
     driver.executeStart()
     results = e.execute(args['duration'])
     driver.executeFinish()
-    
+
     return results
 ## DEF
 
@@ -177,7 +178,7 @@ if __name__ == '__main__':
     aparser = argparse.ArgumentParser(description='Python implementation of the TPC-C Benchmark')
     aparser.add_argument('system', choices=getDrivers(),
                          help='Target system driver')
-    aparser.add_argument('--config', type=file,
+    aparser.add_argument('--config', type=Path,
                          help='Path to driver configuration file')
     aparser.add_argument('--reset', action='store_true',
                          help='Instruct the driver to reset the contents of the database')
@@ -204,7 +205,7 @@ if __name__ == '__main__':
     args = vars(aparser.parse_args())
 
     if args['debug']: logging.getLogger().setLevel(logging.DEBUG)
-        
+
     ## Create a handle to the target client driver
     driverClass = createDriverClass(args['system'])
     assert driverClass != None, "Failed to find '%s' class" % args['system']
@@ -220,7 +221,7 @@ if __name__ == '__main__':
     if args['config']:
         logging.debug("Loading configuration file '%s'" % args['config'])
         cparser = SafeConfigParser()
-        cparser.read(os.path.realpath(args['config'].name))
+        cparser.read(args['config'].resolve())
         config = dict(cparser.items(args['system']))
     else:
         logging.debug("Using default configuration for %s" % args['system'])
@@ -237,7 +238,7 @@ if __name__ == '__main__':
     scaleParameters = scaleparameters.makeWithScaleFactor(args['warehouses'], args['scalefactor'])
     nurand = rand.setNURand(nurand.makeForLoad())
     if args['debug']: logging.debug("Scale Parameters:\n%s" % scaleParameters)
-    
+
     ## DATA LOADER!!!
     load_time = None
     if not args['no_load']:
@@ -252,7 +253,7 @@ if __name__ == '__main__':
             startLoading(driverClass, scaleParameters, args, config)
         load_time = time.time() - load_start
     ## IF
-    
+
     ## WORKLOAD DRIVER!!!
     if not args['no_execute']:
         if args['clients'] == 1:
@@ -265,5 +266,5 @@ if __name__ == '__main__':
         assert results
         print(results.show(load_time))
     ## IF
-    
+
 ## MAIN
